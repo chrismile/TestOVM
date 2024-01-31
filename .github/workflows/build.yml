@@ -1,0 +1,37 @@
+name: Build
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  BUILD_TYPE: Debug
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ ubuntu-latest, windows-2019, windows-2022, macos-latest ]
+
+    runs-on: ${{ matrix.os }}
+    name: "Build on ${{ matrix.os }}"
+
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: true
+
+      - uses: lukka/get-cmake@latest
+
+      - name: Configure CMake
+        shell: bash
+        run: |
+          cmake -B "${{github.workspace}}/build" -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
+
+      - name: Build
+        shell: bash
+        run: |
+          cmake --build "${{github.workspace}}/build" --config ${{env.BUILD_TYPE}} --parallel 4

@@ -1,3 +1,14 @@
+NOTE: TestOVM is open source software published under the BSD 2-Clause license.
+By default it links statically with OpenVolumeMesh, which is published under the LGPL v3 license (see below).
+The LGPL license demands that either recombination or relinking of the combined work must be possible.
+This is fulfilled by providing the complete source code of TestOVM.
+Please note that when you create a work derived from TestOVM which uses OpenVolumeMesh,
+you yourself are responsible for still fulfilling the demands of the LGPL license.
+If you obtained a binary version of TestOVM without the source code of dependencies under the LGPL,
+please find the source code under: https://github.com/chrismile/TestOVM/tree/main/third_party
+
+----------------------------------------------------------------------------
+
 BSD 2-Clause License
 
 Copyright (c) 2024, Christoph Neuhauser
@@ -22,3 +33,22 @@ SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
 CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
 OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+
+----------------------------------------------------------------------------
+
+**License Information for OpenVolumeMesh**
+
+OpenVolumeMesh is free software: you can redistribute it and/or modify
+it under the terms of the GNU Lesser General Public License as
+published by the Free Software Foundation, either version 3 of
+the License, or (at your option) any later version with the
+following exceptions:
+
+OpenVolumeMesh is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU Lesser General Public License for more details.
+You should have received a copy of the GNU LesserGeneral Public
+License along with OpenVolumeMesh. If not,
+see http://www.gnu.org/licenses/.
