@@ -11,5 +11,8 @@ include_directories(src)
 add_executable(TestOVM ${SOURCES})
 
 add_subdirectory(third_party/OpenVolumeMesh)
+target_link_libraries(TestOVM PRIVATE OpenVolumeMesh::OpenVolumeMesh)
+
+set(GLM_ENABLE_CXX_17 ON)
 add_subdirectory(third_party/glm)
-target_link_libraries(TestOVM PRIVATE OpenVolumeMesh::OpenVolumeMesh glm::glm)
+target_link_libraries(TestOVM PRIVATE glm::glm)
