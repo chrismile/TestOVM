@@ -27,6 +27,7 @@
  */
 
 #include <iostream>
+#include <unordered_map>
 
 #include <glm/glm.hpp>
 #include <OpenVolumeMesh/Geometry/VectorT.hh>
