@@ -58,7 +58,7 @@ public:
     }
 
     /**
-     * Subdivides all tets incident with the specified vertex.
+     * Subdivides all tetrahedra incident with the specified vertex.
      * The edges incident with the vertex are split by factor t \in (0, 1).
      * The old cells are removed, and new cells are added.
      */
@@ -175,6 +175,7 @@ public:
 };
 
 int main() {
+    // Two tetrahedra sharing one face.
     std::vector<uint32_t> cellIndices = {
             0, 1, 2, 3,
             1, 4, 2, 3,
