@@ -31,11 +31,14 @@
 
 #include <glm/glm.hpp>
 #include <OpenVolumeMesh/Geometry/VectorT.hh>
+#include <OpenVolumeMesh/Unstable/Topology/TetTopology.hh>
 #include <OpenVolumeMesh/Mesh/TetrahedralMesh.hh>
+#include <OpenVolumeMesh/Mesh/TetrahedralGeometryKernel.hh>
 
 class TetMesh {
 private:
-    OpenVolumeMesh::GeometricTetrahedralMeshV3f ovmMesh;
+    //OpenVolumeMesh::GeometricTetrahedralMeshV3f ovmMesh;
+    OpenVolumeMesh::TetrahedralGeometryKernel<OpenVolumeMesh::Geometry::Vec3f, OpenVolumeMesh::TetrahedralMeshTopologyKernel> ovmMesh;
 
 public:
     // Build a tetrahedral mesh from a list of cell indices (4 vertex indices define a tet) and vertex positions.
@@ -71,6 +74,8 @@ public:
         OpenVolumeMesh::VertexHandle vh((int)vertexIndex);
         for (auto ve_it = ovmMesh.ve_iter(vh); ve_it.valid(); ve_it++) {
             const auto& eh = ve_it.cur_handle();
+            edgesToDelete.push_back(eh);
+#ifndef USE_SPLIT_EDGE
             auto vhs = ovmMesh.edge_vertices(eh);
             auto vh0 = vhs.at(0);
             auto vh1 = vhs.at(1);
@@ -81,9 +86,14 @@ public:
             glm::vec3 vpe = glm::mix(vp0, vp1, 0.5f);
             auto vhe = ovmMesh.add_vertex(OpenVolumeMesh::Vec3f(vpe.x, vpe.y, vpe.z));
             edgeToNewVertexMap.insert(std::make_pair(eh, vhe));
-            edgesToDelete.push_back(eh);
+#endif
         }
 
+#ifdef USE_SPLIT_EDGE
+        for (const auto& eh : edgesToDelete) {
+            ovmMesh.split_edge(eh);
+        }
+#else
         /*
          * Collect the new indices of the new cells. Only add them after deleting the old cells.
          *
@@ -98,8 +108,18 @@ public:
         std::array<OpenVolumeMesh::VertexHandle, 3> vhbs;
         // Iterate over all cells incident with the vertex.
         for (auto vc_it = ovmMesh.vc_iter(vh); vc_it.valid(); vc_it++) {
+            //auto incidentVertices = ovmMesh.get_cell_vertices(*vc_it, vh);
+
+            auto tt = OpenVolumeMesh::TetTopology(ovmMesh, *vc_it, vh); // vertex a == vh
+            vhes[0] = edgeToNewVertexMap.find(tt.ab().edge_handle())->second;
+            vhbs[0] = tt.b();
+            vhes[1] = edgeToNewVertexMap.find(tt.ac().edge_handle())->second;
+            vhbs[1] = tt.c();
+            vhes[2] = edgeToNewVertexMap.find(tt.ad().edge_handle())->second;
+            vhbs[2] = tt.d();
+
             // Iterate over all edges incident with the cell.
-            int i = 0;
+            /*int i = 0;
             for (auto ce_it = ovmMesh.ce_iter(vc_it.cur_handle()); ce_it.valid(); ce_it++) {
                 auto vhs = ovmMesh.edge_vertices(ce_it.cur_handle());
                 // Only process this edge if it was subdivided (i.e., is incident with the vertex 'vh').
@@ -113,7 +133,7 @@ public:
                 vhes[i] = ev_it->second;
                 vhbs[i] = vh == vh0 ? vh1 : vh0;
                 i++;
-            }
+            }*/
 
             // Collect the new cell vertex indices subdividing the currently iterated cell.
             newCells.push_back(vh);
@@ -135,12 +155,6 @@ public:
             newCells.push_back(vhes[1]);
             newCells.push_back(vhes[2]);
             newCells.push_back(vhbs[2]);
-
-            // Test: Add new cells before deleting old ones.
-            //ovmMesh.add_cell(vh,      vhes[0], vhes[1], vhes[2]);
-            //ovmMesh.add_cell(vhes[0], vhbs[0], vhbs[1], vhbs[2]);
-            //ovmMesh.add_cell(vhes[0], vhes[1], vhbs[2], vhbs[1]);
-            //ovmMesh.add_cell(vhes[0], vhes[1], vhes[2], vhbs[2]);
         }
 
         // If we sort edge handles from largest to smallest, there should hopefully not be a problem with invalid handles.
@@ -152,8 +166,19 @@ public:
 
         // Add the new cells after the old ones have been deleted.
         for (size_t i = 0; i < newCells.size(); i += 4) {
+            auto& p0Ovm = vertexPositionsOvm.at(newCells.at(i));
+            auto& p1Ovm = vertexPositionsOvm.at(newCells.at(i + 1));
+            auto& p2Ovm = vertexPositionsOvm.at(newCells.at(i + 2));
+            auto& p3Ovm = vertexPositionsOvm.at(newCells.at(i + 3));
+            glm::vec3 p0(p0Ovm[0], p0Ovm[1], p0Ovm[2]);
+            glm::vec3 p1(p1Ovm[0], p1Ovm[1], p1Ovm[2]);
+            glm::vec3 p2(p2Ovm[0], p2Ovm[1], p2Ovm[2]);
+            glm::vec3 p3(p3Ovm[0], p3Ovm[1], p3Ovm[2]);
+            float volumeSign = -glm::sign(glm::dot(glm::cross(p1 - p0, p2 - p0), p3 - p0));
+            assert(volumeSign > 0.0f && "Invalid winding");
             ovmMesh.add_cell(newCells.at(i), newCells.at(i + 1), newCells.at(i + 2), newCells.at(i + 3), true);
         }
+#endif
 
         // Sanity check: Every tetrahedral cell may only have 4 vertices.
         for (OpenVolumeMesh::CellIter c_it = ovmMesh.cells_begin(); c_it != ovmMesh.cells_end(); c_it++) {
@@ -170,6 +195,22 @@ public:
                 assert(vidx < 4);
                 vidx++;
             }
+        }
+
+        // Sanity check: Winding.
+        for (OpenVolumeMesh::CellIter c_it = ovmMesh.cells_begin(); c_it != ovmMesh.cells_end(); c_it++) {
+            auto ch = *c_it;
+            auto cellVertices = ovmMesh.get_cell_vertices(ch);
+            auto& p0Ovm = vertexPositionsOvm.at(cellVertices.at(0));
+            auto& p1Ovm = vertexPositionsOvm.at(cellVertices.at(1));
+            auto& p2Ovm = vertexPositionsOvm.at(cellVertices.at(2));
+            auto& p3Ovm = vertexPositionsOvm.at(cellVertices.at(3));
+            glm::vec3 p0(p0Ovm[0], p0Ovm[1], p0Ovm[2]);
+            glm::vec3 p1(p1Ovm[0], p1Ovm[1], p1Ovm[2]);
+            glm::vec3 p2(p2Ovm[0], p2Ovm[1], p2Ovm[2]);
+            glm::vec3 p3(p3Ovm[0], p3Ovm[1], p3Ovm[2]);
+            float volumeSign = -glm::sign(glm::dot(glm::cross(p1 - p0, p2 - p0), p3 - p0));
+            assert(volumeSign > 0.0f && "Invalid winding");
         }
     }
 };
