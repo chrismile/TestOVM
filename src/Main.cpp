@@ -41,6 +41,10 @@ private:
     OpenVolumeMesh::TetrahedralGeometryKernel<OpenVolumeMesh::Geometry::Vec3f, OpenVolumeMesh::TetrahedralMeshTopologyKernel> ovmMesh;
 
 public:
+    size_t getNumFaces() {
+        return ovmMesh.n_faces();
+    }
+
     // Build a tetrahedral mesh from a list of cell indices (4 vertex indices define a tet) and vertex positions.
     void build(const std::vector<uint32_t>& cellIndices, const std::vector<glm::vec3>& vertexPositions) {
         // https://www.graphics.rwth-aachen.de/media/openvolumemesh_static/Documentation/OpenVolumeMesh-Doc-Latest/ovm_tutorial_01.html
@@ -59,6 +63,8 @@ public:
             ovmMesh.add_cell(ovmCellVertices);
         }
     }
+
+#define USE_SPLIT_EDGE
 
     /**
      * Subdivides all tetrahedra incident with the specified vertex.
@@ -231,9 +237,15 @@ int main() {
 
     TetMesh tetMesh;
     tetMesh.build(cellIndices, vertexPositions);
+#ifdef USE_SPLIT_EDGE
+    std::cout << "#Faces before: " << tetMesh.getNumFaces() << std::endl;
+    tetMesh.subdivideAtVertex(4, 0.5f);
+    std::cout << "#Faces after: " << tetMesh.getNumFaces() << std::endl;
+#else
     for (int j = 0; j < 4; j++) {
         tetMesh.subdivideAtVertex(j, 0.5f);
     }
+#endif
 
     return 0;
 }
