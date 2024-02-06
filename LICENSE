@@ -1,8 +1,9 @@
 NOTE: TestOVM is open source software published under the BSD 2-Clause license.
-By default it links statically with OpenVolumeMesh, which is published under the LGPL v3 license (see below).
+By default it links statically with OpenVolumeMesh and Naxos Solver, which are
+published under the LGPL v3 license (see below).
 The LGPL license demands that either recombination or relinking of the combined work must be possible.
 This is fulfilled by providing the complete source code of TestOVM.
-Please note that when you create a work derived from TestOVM which uses OpenVolumeMesh,
+Please note that when you create a work derived from TestOVM which uses OpenVolumeMesh or Naxos Solver,
 you yourself are responsible for still fulfilling the demands of the LGPL license.
 If you obtained a binary version of TestOVM without the source code of dependencies under the LGPL,
 please find the source code under: https://github.com/chrismile/TestOVM/tree/main/third_party

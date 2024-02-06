@@ -16,3 +16,7 @@ target_link_libraries(TestOVM PRIVATE OpenVolumeMesh::OpenVolumeMesh)
 option(GLM_ENABLE_CXX_17 "" ON)
 add_subdirectory(third_party/glm)
 target_link_libraries(TestOVM PRIVATE glm::glm)
+
+add_subdirectory(third_party/naxos/core)
+target_link_libraries(TestOVM PRIVATE naxos)
+target_include_directories(TestOVM PRIVATE third_party/naxos/core)
