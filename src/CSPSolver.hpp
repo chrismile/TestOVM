@@ -71,4 +71,7 @@ public:
     virtual bool solve(std::vector<Prism>& prisms) = 0;
 };
 
+/// Checks whether the prism cut CSP criterion is fulfilled.
+bool checkIsCspFulfilled(const std::vector<Prism>& prisms);
+
 #endif //TESTOVM_CSPSOLVER_HPP

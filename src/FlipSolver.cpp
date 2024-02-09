@@ -36,7 +36,8 @@ struct PossibleCuts {
     uint32_t bitfield;
     PossibleCuts() : bitfield(0b111111u) {}
     void update(uint32_t idx, uint32_t neighborCut) {
-        bitfield &= (neighborCut + 1u) << (idx * 2);
+        bitfield |= (0b11u) << (idx * 2);
+        bitfield ^= 1u << (idx * 2u + (1u - neighborCut));
     }
     [[nodiscard]] std::optional<Cuts> getConsistentCuts() const {
         if (bitfield == 0b010101u || bitfield == 0b101010u) {

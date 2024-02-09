@@ -28,6 +28,7 @@
 
 #include <iostream>
 #include <unordered_map>
+#include <filesystem>
 
 #include <glm/glm.hpp>
 #include <OpenVolumeMesh/Geometry/VectorT.hh>
@@ -35,6 +36,7 @@
 #include <OpenVolumeMesh/Mesh/TetrahedralMesh.hh>
 #include <OpenVolumeMesh/Mesh/TetrahedralGeometryKernel.hh>
 
+#include "LineReader.hpp"
 #include "CSPSolver.hpp"
 #include "NaxosSolver.hpp"
 #include "FlipSolver.hpp"
@@ -96,6 +98,7 @@ public:
     // Build a tetrahedral mesh from a list of cell indices (4 vertex indices define a tet) and vertex positions.
     void build(const std::vector<uint32_t>& cellIndices, const std::vector<glm::vec3>& vertexPositions) {
         // https://www.graphics.rwth-aachen.de/media/openvolumemesh_static/Documentation/OpenVolumeMesh-Doc-Latest/ovm_tutorial_01.html
+        ovmMesh = {};
         std::vector<OpenVolumeMesh::VertexHandle> ovmVertices;
         ovmVertices.reserve(vertexPositions.size());
         for (const glm::vec3& v : vertexPositions) {
@@ -110,6 +113,81 @@ public:
             }
             ovmMesh.add_cell(ovmCellVertices);
         }
+    }
+
+    bool loadTxt(const std::string& filePath) {
+        std::vector<uint32_t> cellIndices;
+        std::vector<glm::vec3> vertexPositions;
+
+        uint8_t* buffer = nullptr;
+        size_t length = 0;
+        bool loaded = loadFileFromSource(filePath, buffer, length, true);
+        if (!loaded) {
+            return false;
+        }
+
+        LineReader lineReader(reinterpret_cast<const char*>(buffer), length);
+        std::vector<std::string> linesInfo;
+        std::vector<uint32_t> cellIndicesVector;
+        std::vector<float> vertexPositionsVector;
+        std::vector<float> vertexColorsVector;
+        while (lineReader.isLineLeft()) {
+            lineReader.readVectorLine<std::string>(linesInfo);
+            if (linesInfo.size() != 2) {
+                throw std::runtime_error("Error in TxtTetLoader::loadFromFile: Invalid header line.");
+                delete[] buffer;
+                return false;
+            }
+            const std::string& key = linesInfo.at(0);
+            const auto numEntries = fromString<uint32_t>(linesInfo.at(1));
+            if (key == "cellIndices") {
+                cellIndices.reserve(4 * numEntries);
+                for (uint32_t i = 0; i < numEntries; i++) {
+                    lineReader.readVectorLine<uint32_t>(cellIndicesVector);
+                    if (cellIndicesVector.size() != 4) {
+                        throw std::runtime_error("Error in TxtTetLoader::loadFromFile: Invalid number of indices.");
+                        delete[] buffer;
+                        return false;
+                    }
+                    for (auto entry : cellIndicesVector) {
+                        cellIndices.push_back(entry);
+                    }
+                }
+            } else if (key == "vertexPositions") {
+                vertexPositions.reserve(numEntries);
+                for (uint32_t i = 0; i < numEntries; i++) {
+                    lineReader.readVectorLine<float>(vertexPositionsVector);
+                    if (vertexPositionsVector.size() != 3) {
+                        throw std::runtime_error(
+                                "Error in TxtTetLoader::loadFromFile: Invalid number of vertex position entries.");
+                        delete[] buffer;
+                        return false;
+                    }
+                    vertexPositions.emplace_back(
+                            vertexPositionsVector.at(0), vertexPositionsVector.at(1), vertexPositionsVector.at(2));
+                }
+            } else if (key == "vertexColors") {
+                //vertexColors.reserve(numEntries);
+                for (uint32_t i = 0; i < numEntries; i++) {
+                    lineReader.readVectorLine<float>(vertexColorsVector);
+                    if (vertexColorsVector.size() != 4) {
+                        throw std::runtime_error(
+                                "Error in TxtTetLoader::loadFromFile: Invalid number of vertex color entries.");
+                        delete[] buffer;
+                        return false;
+                    }
+                    // Skip.
+                    //vertexColors.emplace_back(
+                    //        vertexColorsVector.at(0), vertexColorsVector.at(1),
+                    //        vertexColorsVector.at(2), vertexColorsVector.at(3));
+                }
+            }
+        }
+
+        delete[] buffer;
+
+        build(cellIndices, vertexPositions);
+        return true;
     }
 
 #define USE_SPLIT_EDGE
@@ -306,7 +384,7 @@ public:
             tetTopologies[tetIdx] = tt;
             halffaceToIndexMap.insert(std::make_pair(tt->abc(), tetIdx * 3));
             halffaceToIndexMap.insert(std::make_pair(tt->acd(), tetIdx * 3 + 1));
-            halffaceToIndexMap.insert(std::make_pair(tt->abd(), tetIdx * 3 + 2));
+            halffaceToIndexMap.insert(std::make_pair(tt->adb(), tetIdx * 3 + 2));
             cellToIndexMap.insert(std::make_pair(*vc_it, tetIdx));
             tetIdx++;
         }
@@ -335,6 +413,9 @@ public:
         auto* cspSolver = new FlipSolver();
         if (!cspSolver->solve(prisms)) {
             throw std::runtime_error("Error: CSP solver failed!");
+        }
+        if (!checkIsCspFulfilled(prisms)) {
+            throw std::runtime_error("Error: CSP condition not fulfilled!");
         }
         delete cspSolver;
 
@@ -390,7 +471,6 @@ public:
         }
     }
 
-
     void checkPrismTableWinding(uint32_t tetIdx, uint32_t vertexIndex, float t = 0.5f) {
         auto& vertexPositionsOvm = ovmMesh.vertex_positions();
         OpenVolumeMesh::VertexHandle vh((int)vertexIndex);
@@ -433,39 +513,49 @@ public:
 };
 
 int main() {
-    // Two tetrahedra sharing one face.
-    std::vector<uint32_t> cellIndices = {
-            0, 1, 2, 3,
-            1, 4, 2, 3,
-    };
-    std::vector<glm::vec3> vertexPositions = {
-            { -0.1, -0.1,  0.1 },
-            {  0.1, -0.1,  0.1 },
-            {    0,  0.3,    0 },
-            {  0.1, -0.1, -0.1 },
-            {  0.2,  0.1,  0.1 },
-    };
-
     TetMesh tetMesh;
-    tetMesh.build(cellIndices, vertexPositions);
-/*#ifdef USE_SPLIT_EDGE
-    std::cout << "#Faces before: " << tetMesh.getNumFaces() << std::endl;
-    tetMesh.subdivideAtVertex(4, 0.5f);
-    std::cout << "#Faces after: " << tetMesh.getNumFaces() << std::endl;
-#else
-    for (int j = 0; j < 4; j++) {
-        tetMesh.subdivideAtVertex(j, 0.5f);
-    }
-#endif*/
-
-    for (int vertexIdx = 0; vertexIdx < 3; vertexIdx++) {
-        tetMesh.checkPrismTableWinding(0, vertexIdx);
-    }
-    for (int vertexIdx = 1; vertexIdx < 4; vertexIdx++) {
-        tetMesh.checkPrismTableWinding(1, vertexIdx);
+    std::string dataDir = "Data/";
+    if (!std::filesystem::is_directory(dataDir)) {
+        dataDir = "../Data/";
     }
 
-    tetMesh.subdivideAtVertexPrism(0, 0.5f);
+    int testCaseIdx = 1;
+    if (testCaseIdx == 0) {
+        // Two tetrahedra sharing one face.
+        std::vector<uint32_t> cellIndices = {
+                0, 1, 2, 3,
+                1, 4, 2, 3,
+        };
+        std::vector<glm::vec3> vertexPositions = {
+                { -0.1, -0.1,  0.1 },
+                {  0.1, -0.1,  0.1 },
+                {    0,  0.3,    0 },
+                {  0.1, -0.1, -0.1 },
+                {  0.2,  0.1,  0.1 },
+        };
+        tetMesh.build(cellIndices, vertexPositions);
+        for (int vertexIdx = 0; vertexIdx < 3; vertexIdx++) {
+            tetMesh.checkPrismTableWinding(0, vertexIdx);
+        }
+        for (int vertexIdx = 1; vertexIdx < 4; vertexIdx++) {
+            tetMesh.checkPrismTableWinding(1, vertexIdx);
+        }
+        tetMesh.subdivideAtVertexPrism(0, 0.5f);
+    } else if (testCaseIdx == 1) {
+        tetMesh.loadTxt(dataDir + "ico01.txt");
+        tetMesh.subdivideAtVertexPrism(12, 0.5f);
+        //tetMesh.subdivideAtVertexPrism(1, 0.5f);
+    }
+
+//#ifdef USE_SPLIT_EDGE
+//    std::cout << "#Faces before: " << tetMesh.getNumFaces() << std::endl;
+//    tetMesh.subdivideAtVertex(4, 0.5f);
+//    std::cout << "#Faces after: " << tetMesh.getNumFaces() << std::endl;
+//#else
+//    for (int j = 0; j < 4; j++) {
+//        tetMesh.subdivideAtVertex(j, 0.5f);
+//    }
+//#endif
 
     return 0;
 }
