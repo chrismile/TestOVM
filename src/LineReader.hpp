@@ -32,6 +32,7 @@
 #include <vector>
 #include <string>
 #include <sstream>
+#include <cstdint>
 
 /// Conversion to and from string
 template <class T>

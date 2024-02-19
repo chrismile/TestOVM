@@ -27,6 +27,9 @@
  */
 
 #include <queue>
+#include <unordered_map>
+#include <unordered_set>
+#include <memory>
 #include <optional>
 #include <stdexcept>
 
@@ -63,7 +66,126 @@ struct PossibleCuts {
             return Cuts(1, 1, 0);
         }
     }
+    [[nodiscard]] Cuts getAnyConsistentCut() const {
+        if (bitfield == 0b010101u) {
+            return Cuts(0, 0, 0);
+        } else if (bitfield == 0b101010u) {
+            return Cuts(1, 1, 1);
+        } else {
+            return getConsistentCuts().value();
+        }
+    }
 };
+
+struct BfsEntry {
+    int currIdx = -1;
+    std::unordered_map<int, Cuts> tetToCutsMap;
+};
+
+void doRippling(std::vector<Prism>& prisms, int startIdx, const std::vector<bool>& prismVisitedArray) {
+    std::queue<std::shared_ptr<BfsEntry>> bfsQueue;
+    auto startEntry = std::make_shared<BfsEntry>();
+    startEntry->currIdx = startIdx;
+    bfsQueue.push(startEntry);
+
+    std::shared_ptr<BfsEntry> validRipplePath{};
+
+    while (!bfsQueue.empty()) {
+        auto currBfsEntry = bfsQueue.front();
+        bfsQueue.pop();
+        int currIdx = currBfsEntry->currIdx;
+        Prism* p = &prisms.at(currIdx);
+
+        // Check if cuts pattern consistent with neighbors.
+        PossibleCuts possibleCuts{};
+        for (int neighborIdxLocal = 0; neighborIdxLocal < 3; neighborIdxLocal++) {
+            int neighborIdx = p->neighbors.at(neighborIdxLocal);
+            if (neighborIdx >= 0 && prismVisitedArray.at(neighborIdx)) {
+                Prism* neighbor = &prisms.at(neighborIdx);
+                int neighborFaceIdx = p->neighborFaceIndices.at(neighborIdxLocal) % 3;
+                auto* neighborCuts = &neighbor->cuts;
+                auto it = currBfsEntry->tetToCutsMap.find(neighborIdx);
+                if (it != currBfsEntry->tetToCutsMap.end()) {
+                    neighborCuts = &it->second;
+                }
+                possibleCuts.update(neighborIdxLocal, 1u - neighborCuts->getCut(neighborFaceIdx));
+            }
+        }
+        auto consistentCut = possibleCuts.getConsistentCuts();
+        if (consistentCut) {
+            currBfsEntry->tetToCutsMap[currIdx] = consistentCut.value();
+            //p->cuts = consistentCut.value();
+            validRipplePath = currBfsEntry;
+            break;
+        } else {
+            bool existsFlippableNeighbor = false;
+            for (int neighborIdxLocal = 0; neighborIdxLocal < 3; neighborIdxLocal++) {
+                int neighborIdx = p->neighbors.at(neighborIdxLocal);
+                if (neighborIdx >= 0 && prismVisitedArray.at(neighborIdx)) {
+                    Prism* neighbor = &prisms.at(neighborIdx);
+                    int neighborFaceIdx = p->neighborFaceIndices.at(neighborIdxLocal) % 3;
+                    auto newCut = neighbor->cuts;
+                    auto it = currBfsEntry->tetToCutsMap.find(neighborIdx);
+                    if (it != currBfsEntry->tetToCutsMap.end()) {
+                        newCut = it->second;
+                    }
+                    newCut.setCut(neighborFaceIdx, 1u - newCut.getCut(neighborFaceIdx));
+                    if (newCut.isValid()) {
+                        existsFlippableNeighbor = true;
+                        // Flip cut shared with p and assign opposite cut to p.
+                        currBfsEntry->tetToCutsMap[neighborIdx] = newCut;
+                        //neighbor->cuts = newCut;
+                        possibleCuts.update(neighborIdxLocal, 1u - newCut.getCut(neighborFaceIdx));
+                        currBfsEntry->tetToCutsMap[currIdx] = possibleCuts.getConsistentCuts().value();
+                        //p->cuts = possibleCuts.getConsistentCuts().value();
+                        break;
+                    }
+                    possibleCuts.update(neighborIdxLocal, 1u - neighbor->cuts.getCut(neighborFaceIdx));
+                }
+            }
+            if (!existsFlippableNeighbor) {
+                // Use rippling algorithm.
+                for (int neighborIdxLocal = 0; neighborIdxLocal < 3; neighborIdxLocal++) {
+                    int neighborIdx = p->neighbors.at(neighborIdxLocal);
+                    if (neighborIdx >= 0 && prismVisitedArray.at(neighborIdx)) {
+                        Prism* neighbor = &prisms.at(neighborIdx);
+                        int neighborFaceIdx = p->neighborFaceIndices.at(neighborIdxLocal) % 3;
+
+                        auto cutSelf = p->cuts;
+                        auto cutNeig = neighbor->cuts;
+                        auto itSelf = currBfsEntry->tetToCutsMap.find(currIdx);
+                        auto itNeig = currBfsEntry->tetToCutsMap.find(neighborIdx);
+                        if (itSelf != currBfsEntry->tetToCutsMap.end()) {
+                            cutSelf = itSelf->second;
+                        }
+                        if (itNeig != currBfsEntry->tetToCutsMap.end()) {
+                            cutNeig = itNeig->second;
+                        }
+                        cutSelf.setCut(neighborIdxLocal, 1u - cutSelf.getCut(neighborIdxLocal));
+                        cutNeig.setCut(neighborFaceIdx, 1u - cutSelf.getCut(neighborFaceIdx));
+
+                        auto neighborRippleEntry = std::make_shared<BfsEntry>(*currBfsEntry);
+                        neighborRippleEntry->currIdx = neighborIdx;
+                        neighborRippleEntry->tetToCutsMap[currIdx] = cutSelf;
+                        neighborRippleEntry->tetToCutsMap[neighborIdx] = cutNeig;
+                        bfsQueue.push(neighborRippleEntry);
+                    }
+                }
+            } else {
+                validRipplePath = currBfsEntry;
+                break;
+            }
+        }
+    }
+
+    if (!validRipplePath) {
+        throw std::runtime_error("Error: Rippling algorithm did not find a solution.");
+    }
+
+    for (auto& it : validRipplePath->tetToCutsMap) {
+        prisms.at(it.first).cuts = it.second;
+    }
+}
 
 bool FlipSolver::solve(std::vector<Prism>& prisms) {
     // Use algorithm from Figure 14 from paper mentioned in the header file.
@@ -122,8 +244,10 @@ bool FlipSolver::solve(std::vector<Prism>& prisms) {
                 }
                 if (!existsFlippableNeighbor) {
                     // Use rippling algorithm.
-                    // TODO
-                    throw std::runtime_error("Error: Rippling algorithm not yet implemented.");
+                    p->cuts = possibleCuts.getAnyConsistentCut();
+                    doRippling(prisms, currIdx, prismVisitedArray);
+                    //writeGraphviz(prisms);
+                    //throw std::runtime_error("Error: Rippling algorithm not yet implemented.");
                 }
             }
         }

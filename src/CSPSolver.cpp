@@ -47,11 +47,12 @@ bool writeGraphviz(const std::vector<Prism>& prisms) {
                 const Prism& neighbor = prisms.at(neighborIdx);
                 int neighborFaceIdx = prism.neighborFaceIndices.at(neighborIdxLocal) % 3;
                 std::string_view attrs = "";
-                if (prism.cuts.getCut(neighborIdxLocal) != 1u - neighbor.cuts.getCut(neighborFaceIdx)) {
+                if (prism.cuts.getCut(neighborIdxLocal) != 1u - neighbor.cuts.getCut(neighborFaceIdx)
+                        || prism.cuts.bitfield == 0b000u || prism.cuts.bitfield == 0b111u) {
                     attrs = ";color=red";
                 }
                 std::cout << prismIdx << " -> " << neighborIdx << "[label=" << RF_ARRAY[prism.cuts.getCut(neighborIdxLocal)] << attrs << "];" << std::endl;
-                std::cout << neighborIdx << " -> " << prismIdx << "[label=" << RF_ARRAY[1u - neighbor.cuts.getCut(neighborFaceIdx)] << attrs << "];" << std::endl;
+                //std::cout << neighborIdx << " -> " << prismIdx << "[label=" << RF_ARRAY[1u - neighbor.cuts.getCut(neighborFaceIdx)] << attrs << "];" << std::endl;
             }
         }
     }
@@ -62,6 +63,7 @@ bool writeGraphviz(const std::vector<Prism>& prisms) {
 bool checkIsCspFulfilled(const std::vector<Prism>& prisms) {
     for (const Prism& prism : prisms) {
         if (prism.cuts.bitfield == 0b000u || prism.cuts.bitfield == 0b111u) {
+            writeGraphviz(prisms);
             return false;
         }
         for (int neighborIdxLocal = 0; neighborIdxLocal < 3; neighborIdxLocal++) {

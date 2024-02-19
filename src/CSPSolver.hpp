@@ -74,4 +74,7 @@ public:
 /// Checks whether the prism cut CSP criterion is fulfilled.
 bool checkIsCspFulfilled(const std::vector<Prism>& prisms);
 
+/// Writes the CSP graph to std::out for debugging purposes.
+bool writeGraphviz(const std::vector<Prism>& prisms);
+
 #endif //TESTOVM_CSPSOLVER_HPP
