@@ -50,18 +50,18 @@
 const uint32_t PRISM_TO_TET_TABLE[8][12] = {
         // RRR, invalid
         { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
-        // RRF, splits: (b, c'), (c, d'), (b, d'); meets in: b, d'
-        { 0, 1, 5, 2, 3, 4, 5, 0, 0, 1, 4, 5 },
-        // RFR, splits: (b, c'), (d, c'), (d, b'); meets in: d, c'
-        { 0, 1, 4, 2, 3, 4, 5, 2, 0, 2, 4, 3 },
-        // RFF, splits: (b, c'), (d, c'), (b, d'); meets in: b, c'
-        { 0, 1, 4, 2, 3, 4, 5, 0, 0, 2, 4, 5 },
         // FRR, splits: (c, b'), (c, d'), (d, b'); meets in: c, b'
         { 0, 1, 3, 2, 3, 4, 5, 1, 1, 2, 5, 3 },
-        // FRF, splits: (c, b'), (c, d'), (b, d'); meets in: c, d'
-        { 0, 1, 5, 2, 3, 4, 5, 1, 0, 1, 3, 5 },
+        // RFR, splits: (b, c'), (d, c'), (d, b'); meets in: d, c'
+        { 0, 1, 4, 2, 3, 4, 5, 2, 0, 2, 4, 3 },
         // FFR, splits: (c, b'), (d, c'), (d, b'); meets in: d, b'
         { 0, 1, 3, 2, 3, 4, 5, 2, 1, 2, 4, 3 },
+        // RRF, splits: (b, c'), (c, d'), (b, d'); meets in: b, d'
+        { 0, 1, 5, 2, 3, 4, 5, 0, 0, 1, 4, 5 },
+        // FRF, splits: (c, b'), (c, d'), (b, d'); meets in: c, d'
+        { 0, 1, 5, 2, 3, 4, 5, 1, 0, 1, 3, 5 },
+        // RFF, splits: (b, c'), (d, c'), (b, d'); meets in: b, c'
+        { 0, 1, 4, 2, 3, 4, 5, 0, 0, 2, 4, 5 },
         // FFF, invalid
         { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
 };
@@ -69,18 +69,18 @@ const uint32_t PRISM_TO_TET_TABLE[8][12] = {
 /*const uint32_t PRISM_TO_TET_TABLE[8][12] = {
         // RRR, invalid
         { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
-        // RRF, splits: (b, c'), (c, d'), (b, d'); meets in: b, d'
-        { 0, 1, 2, 5, 3, 4, 5, 0, 0, 1, 4, 5 },
-        // RFR, splits: (b, c'), (d, c'), (d, b'); meets in: d, c'
-        { 0, 1, 2, 4, 3, 4, 5, 2, 0, 2, 3, 4 },
-        // RFF, splits: (b, c'), (d, c'), (b, d'); meets in: b, c'
-        { 0, 1, 2, 4, 3, 4, 5, 0, 0, 2, 4, 5 },
         // FRR, splits: (c, b'), (c, d'), (d, b'); meets in: c, b'
         { 0, 1, 2, 3, 3, 4, 5, 1, 1, 2, 3, 5 },
-        // FRF, splits: (c, b'), (c, d'), (b, d'); meets in: c, d'
-        { 0, 1, 2, 5, 3, 4, 5, 1, 0, 1, 3, 5 },
+        // RFR, splits: (b, c'), (d, c'), (d, b'); meets in: d, c'
+        { 0, 1, 2, 4, 3, 4, 5, 2, 0, 2, 3, 4 },
         // FFR, splits: (c, b'), (d, c'), (d, b'); meets in: d, b'
         { 0, 1, 2, 3, 3, 4, 5, 2, 1, 2, 3, 4 },
+        // RRF, splits: (b, c'), (c, d'), (b, d'); meets in: b, d'
+        { 0, 1, 2, 5, 3, 4, 5, 0, 0, 1, 4, 5 },
+        // FRF, splits: (c, b'), (c, d'), (b, d'); meets in: c, d'
+        { 0, 1, 2, 5, 3, 4, 5, 1, 0, 1, 3, 5 },
+        // RFF, splits: (b, c'), (d, c'), (b, d'); meets in: b, c'
+        { 0, 1, 2, 4, 3, 4, 5, 0, 0, 2, 4, 5 },
         // FFF, invalid
         { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
 };*/
@@ -88,9 +88,13 @@ const uint32_t PRISM_TO_TET_TABLE[8][12] = {
 class TetMesh {
 private:
     //OpenVolumeMesh::GeometricTetrahedralMeshV3f ovmMesh;
-    OpenVolumeMesh::TetrahedralGeometryKernel<OpenVolumeMesh::Geometry::Vec3f, OpenVolumeMesh::TetrahedralMeshTopologyKernel> ovmMesh;
+    using MeshType = OpenVolumeMesh::TetrahedralGeometryKernel<OpenVolumeMesh::Geometry::Vec3f, OpenVolumeMesh::TetrahedralMeshTopologyKernel>;
+    MeshType ovmMesh;
 
 public:
+    MeshType& getOvmMesh() {
+        return ovmMesh;
+    }
     size_t getNumFaces() {
         return ovmMesh.n_faces();
     }
@@ -527,7 +531,8 @@ int main() {
         dataDir = "../Data/";
     }
 
-    int testCaseIdx = 1;
+    //int testCaseIdx = 1;
+    int testCaseIdx = 0;
     if (testCaseIdx == 0) {
         // Two tetrahedra sharing one face.
         std::vector<uint32_t> cellIndices = {
@@ -552,8 +557,20 @@ int main() {
     } else if (testCaseIdx == 1) {
         tetMesh.loadTxt(dataDir + "ico01.txt");
         tetMesh.subdivideAtVertexPrism(12, 0.5f);
+        tetMesh.subdivideAtVertexPrism(0, 0.5f);
         tetMesh.checkPrismTableWindingAll();
         //tetMesh.subdivideAtVertexPrism(1, 0.5f);
+    } else if (testCaseIdx == 2) {
+        //tetMesh.loadTxt(dataDir + "tet_interior.txt");
+        //tetMesh.subdivideAtVertexPrism(0, 0.5f);
+        tetMesh.loadTxt(dataDir + "test_two.txt");
+        tetMesh.subdivideAtVertexPrism(1, 0.5f);
+        tetMesh.checkPrismTableWindingAll();
+    }
+
+    int genus = tetMesh.getOvmMesh().genus();
+    if (genus != 0) {
+        throw std::runtime_error("Error: genus (" + std::to_string(genus) + ") != 0 failed.");
     }
 
 //#ifdef USE_SPLIT_EDGE
