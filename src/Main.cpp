@@ -510,6 +510,14 @@ public:
             }
         }
     }
+
+    void checkPrismTableWindingAll() {
+        for (auto& ch : ovmMesh.cells()) {
+            for (auto& vh : ovmMesh.cell_vertices(ch)) {
+                checkPrismTableWinding(ch.uidx(), vh.uidx());
+            }
+        }
+    }
 };
 
 int main() {
@@ -544,6 +552,7 @@ int main() {
     } else if (testCaseIdx == 1) {
         tetMesh.loadTxt(dataDir + "ico01.txt");
         tetMesh.subdivideAtVertexPrism(12, 0.5f);
+        tetMesh.checkPrismTableWindingAll();
         //tetMesh.subdivideAtVertexPrism(1, 0.5f);
     }
 
