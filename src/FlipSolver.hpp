@@ -38,6 +38,7 @@
 class FlipSolver : public CSPSolver {
 public:
     bool solve(std::vector<Prism>& prisms) override;
+    bool shallDebug = false;
 };
 
 #endif //TESTOVM_FLIPSOLVER_HPP

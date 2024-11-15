@@ -28,6 +28,7 @@
 
 #include <iostream>
 #include <unordered_map>
+#include <random>
 #include <filesystem>
 
 #include <glm/glm.hpp>
@@ -85,6 +86,8 @@ const uint32_t PRISM_TO_TET_TABLE[8][12] = {
         { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
 };*/
 
+static bool printGraphNow = false;
+
 class TetMesh {
 private:
     //OpenVolumeMesh::GeometricTetrahedralMeshV3f ovmMesh;
@@ -97,6 +100,9 @@ public:
     }
     size_t getNumFaces() {
         return ovmMesh.n_faces();
+    }
+    size_t getNumVertices() {
+        return ovmMesh.n_vertices();
     }
 
     // Build a tetrahedral mesh from a list of cell indices (4 vertex indices define a tet) and vertex positions.
@@ -415,6 +421,7 @@ public:
         // Solve constraint satisfaction problem.
         //auto* cspSolver = new NaxosSolver();
         auto* cspSolver = new FlipSolver();
+        cspSolver->shallDebug = printGraphNow;
         if (!cspSolver->solve(prisms)) {
             throw std::runtime_error("Error: CSP solver failed!");
         }
@@ -532,7 +539,7 @@ int main() {
     }
 
     //int testCaseIdx = 1;
-    int testCaseIdx = 0;
+    int testCaseIdx = 4;
     if (testCaseIdx == 0) {
         // Two tetrahedra sharing one face.
         std::vector<uint32_t> cellIndices = {
@@ -566,6 +573,29 @@ int main() {
         tetMesh.loadTxt(dataDir + "test_two.txt");
         tetMesh.subdivideAtVertexPrism(1, 0.5f);
         tetMesh.checkPrismTableWindingAll();
+    } else if (testCaseIdx == 3) {
+        tetMesh.loadTxt(dataDir + "test_two.txt");
+        for (int i = 0; i < 100; i++) {
+            tetMesh.subdivideAtVertexPrism(i, 0.5f);
+        }
+        for (int i = 200; i < 300; i++) {
+            tetMesh.subdivideAtVertexPrism(i, 0.5f);
+        }
+        tetMesh.checkPrismTableWindingAll();
+    } else if (testCaseIdx == 4) {
+        for (int seedIdx = 0; seedIdx < 1000; seedIdx++) {
+            std::cout << seedIdx << "..." << std::endl;
+            tetMesh = TetMesh();
+            tetMesh.loadTxt(dataDir + "test_two.txt");
+            std::mt19937 generator(seedIdx);
+            for (int i = 0; i < 100; i++) {
+                auto numVerts = int(tetMesh.getNumVertices());
+                std::uniform_int_distribution<> dis(0, numVerts - 1);
+                int vertexIdx = dis(generator);
+                tetMesh.subdivideAtVertexPrism(vertexIdx, 0.5f);
+            }
+            tetMesh.checkPrismTableWindingAll();
+        }
     }
 
     int genus = tetMesh.getOvmMesh().genus();

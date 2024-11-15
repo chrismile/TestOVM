@@ -27,6 +27,7 @@
  */
 
 #include <iostream>
+#include <fstream>
 
 #include "CSPSolver.hpp"
 
@@ -48,7 +49,7 @@ bool writeGraphviz(const std::vector<Prism>& prisms) {
                 int neighborFaceIdx = prism.neighborFaceIndices.at(neighborIdxLocal) % 3;
                 std::string_view attrs = "";
                 if (prism.cuts.getCut(neighborIdxLocal) != 1u - neighbor.cuts.getCut(neighborFaceIdx)
-                        || prism.cuts.bitfield == 0b000u || prism.cuts.bitfield == 0b111u) {
+                    || prism.cuts.bitfield == 0b000u || prism.cuts.bitfield == 0b111u) {
                     attrs = ";color=red";
                 }
                 std::cout << prismIdx << " -> " << neighborIdx << "[label=" << RF_ARRAY[prism.cuts.getCut(neighborIdxLocal)] << attrs << "];" << std::endl;
@@ -57,6 +58,34 @@ bool writeGraphviz(const std::vector<Prism>& prisms) {
         }
     }
     std::cout << "}" << std::endl;
+    return true;
+}
+
+bool writeGraphvizToFile(const std::string& filePath, const std::vector<Prism>& prisms) {
+    std::ofstream outFile(filePath.c_str());
+    outFile << "digraph CspGraph {\n";
+    for (int prismIdx = 0; prismIdx < int(prisms.size()); prismIdx++) {
+        outFile << prismIdx << ";\n";
+    }
+    for (int prismIdx = 0; prismIdx < int(prisms.size()); prismIdx++) {
+        const Prism& prism = prisms.at(prismIdx);
+        for (int neighborIdxLocal = 0; neighborIdxLocal < 3; neighborIdxLocal++) {
+            int neighborIdx = prism.neighbors.at(neighborIdxLocal);
+            if (neighborIdx >= 0) {
+                const Prism& neighbor = prisms.at(neighborIdx);
+                int neighborFaceIdx = prism.neighborFaceIndices.at(neighborIdxLocal) % 3;
+                std::string_view attrs = "";
+                if (prism.cuts.getCut(neighborIdxLocal) != 1u - neighbor.cuts.getCut(neighborFaceIdx)
+                    || prism.cuts.bitfield == 0b000u || prism.cuts.bitfield == 0b111u) {
+                    attrs = ";color=red";
+                }
+                outFile << prismIdx << " -> " << neighborIdx << "[label=" << RF_ARRAY[prism.cuts.getCut(neighborIdxLocal)] << attrs << "];\n";
+                //outFile << neighborIdx << " -> " << prismIdx << "[label=" << RF_ARRAY[1u - neighbor.cuts.getCut(neighborFaceIdx)] << attrs << "];\n";
+            }
+        }
+    }
+    outFile << "}\n";
+    outFile.close();
     return true;
 }
 

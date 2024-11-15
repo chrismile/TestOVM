@@ -27,11 +27,14 @@
  */
 
 #include <queue>
+#include <iostream>
 #include <unordered_map>
 #include <unordered_set>
+#include <sstream>
 #include <memory>
 #include <optional>
 #include <stdexcept>
+#include <iomanip>
 
 #include "FlipSolver.hpp"
 
@@ -140,7 +143,8 @@ void doRippling(std::vector<Prism>& prisms, int startIdx, const std::vector<bool
                         //p->cuts = possibleCuts.getConsistentCuts().value();
                         break;
                     }
-                    possibleCuts.update(neighborIdxLocal, 1u - neighbor->cuts.getCut(neighborFaceIdx));
+                    newCut.setCut(neighborFaceIdx, 1u - newCut.getCut(neighborFaceIdx));
+                    possibleCuts.update(neighborIdxLocal, 1u - newCut.getCut(neighborFaceIdx));
                 }
             }
             if (!existsFlippableNeighbor) {
